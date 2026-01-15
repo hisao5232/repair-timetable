@@ -1,0 +1,65 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: repair-db
+    restart: always
+    env_file: .env
+    # 修正：environmentをリスト形式に（maintenanceに合わせる）
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - internal
+
+  backend:
+    build: ./backend
+    container_name: repair-backend
+    restart: always
+    env_file: .env
+    depends_on:
+      - db
+    networks:
+      - traefik-public
+      - internal
+    labels:
+      - "traefik.enable=true"
+      # サブドメインを repair-api に設定
+      - "traefik.http.routers.repair-api.rule=Host(`repair-api.go-pro-world.net`)"
+      - "traefik.http.routers.repair-api.entrypoints=websecure"
+      - "traefik.http.routers.repair-api.tls=true"
+      - "traefik.http.routers.repair-api.tls.certresolver=lets-encrypt"
+      - "traefik.http.services.repair-api.loadbalancer.server.port=8000"
+      - "traefik.docker.network=traefik-public"
+
+  frontend:
+    build: ./frontend
+    container_name: repair-frontend
+    restart: always
+    env_file: .env
+    networks:
+      - traefik-public  # ★ここ
+      - internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.repair-frontend.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.repair-frontend.entrypoints=websecure"
+      - "traefik.http.routers.repair-frontend.tls=true"
+      - "traefik.http.routers.repair-frontend.tls.certresolver=${CERT_RESOLVER}"
+      - "traefik.http.services.repair-frontend.loadbalancer.server.port=5000"
+      # ↓ ★これを追加（すでにある場合は、名前が traefik-public か再確認）
+      - "traefik.http.services.repair-frontend.loadbalancer.server.scheme=http"
+      # ↓ ★これが決定打です。Traefikにネットワークを指定します。
+      - "traefik.docker.network=traefik-public"
+
+# ★ここが重要：maintenanceと同じ構成にする
+networks:
+  internal:
+    driver: bridge
+  traefik-public:
+    external: true
+
+volumes:
+  db_data:

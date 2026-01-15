@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repair-Time: 出張修理予約</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <section class="input-section">
+            <h2>🛠️ 新規予約登録</h2>
+                <form id="reservation-form">
+                    <div class="form-group">
+                        <input type="text" id="customer_name" placeholder="顧客名" required>
+                        <input type="text" id="contact_person" placeholder="先方担当者" required>
+                        <input type="text" id="phone_number" placeholder="連絡先" required>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="machine_model" placeholder="型式 (例: PC200-10)" required>
+                        <input type="text" id="serial_number" placeholder="シリアルNo" required>
+                        <input type="datetime-local" id="appointment_date" required>
+                    </div>
+                    <input type="text" id="location" placeholder="現場住所" style="width: 100%; margin-bottom: 10px;" required>
+                    <textarea id="failure_symptoms" placeholder="故障症状・メモ"></textarea>
+                    <button type="submit">予約を登録する</button>
+                </form>
+        </section>
+
+        <hr>
+
+        <section class="timetable-section">
+            <h2>📅 今週のスケジュール</h2>
+            <div class="timetable-grid">
+                <div class="day-header">月</div>
+                <div class="day-header">火</div>
+                <div class="day-header">水</div>
+                <div class="day-header">木</div>
+                <div class="day-header">金</div>
+                <div class="day-header">土</div>
+                <div class="day-header">日</div>
+                
+                <div class="day-slot" id="day-mon"></div>
+                <div class="day-slot" id="day-tue"></div>
+                <div class="day-slot" id="day-wed"></div>
+                <div class="day-slot" id="day-thu"></div>
+                <div class="day-slot" id="day-fri"></div>
+                <div class="day-slot" id="day-sat"></div>
+                <div class="day-slot" id="day-sun"></div>
+            </div>
+        </section>
+    </div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
