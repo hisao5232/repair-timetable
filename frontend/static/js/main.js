@@ -43,58 +43,71 @@ document.addEventListener('DOMContentLoaded', () => {
     loadTimetable();
 });
 
+// loadTimetable関数を大幅にアップデート
 async function loadTimetable() {
     const now = new Date();
+    // 今週の月曜日を取得
     const dayOfWeek = now.getDay();
     const diffToMon = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-    const monday = new Date(now.setDate(diffToMon));
+    const startDate = new Date(now.setDate(diffToMon));
 
-    const dayIds = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-    
-    // ヘッダーとスロットの初期化
-    dayIds.forEach((id, index) => {
-        const targetDate = new Date(monday);
-        targetDate.setDate(monday.getDate() + index);
-        const dateStr = `${targetDate.getMonth() + 1}/${targetDate.getDate()}`;
-        document.querySelector(`.day-header:nth-child(${index + 1})`).innerHTML = 
-            `${['月','火','水','木','金','土','日'][index]}<br><small>${dateStr}</small>`;
-        
-        const slot = document.getElementById(`day-${id}`);
-        slot.innerHTML = '';
-        slot.dataset.date = targetDate.toISOString().split('T')[0];
+    const grid = document.querySelector('.timetable-grid');
+    grid.innerHTML = ''; // 一旦空にする
+
+    // ヘッダー作成（月〜土）
+    const daysText = ['月', '火', '水', '木', '金', '土'];
+    daysText.forEach(day => {
+        const header = document.createElement('div');
+        header.className = 'day-header';
+        header.innerText = day;
+        grid.appendChild(header);
     });
 
+    // 4週間分（24日分）の枠を作成
+    for (let i = 0; i < 24; i++) {
+        const targetDate = new Date(startDate);
+        targetDate.setDate(startDate.getDate() + Math.floor(i / 6) * 7 + (i % 6));
+        
+        const dateStr = targetDate.toISOString().split('T')[0];
+        const displayDate = `${targetDate.getMonth() + 1}/${targetDate.getDate()}`;
+        
+        const slot = document.createElement('div');
+        slot.className = 'day-slot';
+        slot.id = `day-${dateStr}`;
+        slot.innerHTML = `<div class="date-label">${displayDate}</div>`;
+        
+        // 祝日判定（簡易的な日本の祝日判定ロジック）
+        if (isJapaneseHoliday(targetDate)) {
+            slot.classList.add('holiday');
+        }
+        
+        grid.appendChild(slot);
+    }
+
+    // APIからデータ取得
     try {
         const response = await fetch('https://repair-api.go-pro-world.net/appointments');
         const appointments = await response.json();
-
         appointments.forEach(app => {
             const appDate = app.appointment_date.split('T')[0];
-            
-            dayIds.forEach(id => {
-                const slot = document.getElementById(`day-${id}`);
-                if (slot.dataset.date === appDate) {
-                    const item = document.createElement('div');
-                    
-                    // ステータスが completed ならクラスを追加
-                    item.className = 'appointment-item' + (app.status === 'completed' ? ' status-completed' : '');
-                    
-                    item.innerHTML = `
-                        <strong>${app.customer_name}</strong><br>
-                        <small>${app.machine_model}</small><br>
-                        <span class="location">📍${app.location}</span>
-                    `;
-
-                    // ★ ここでクリックイベントを追加
-                    item.onclick = () => openCompletionModal(app);
-                    
-                    slot.appendChild(item);
-                }
-            });
+            const slot = document.getElementById(`day-${appDate}`);
+            if (slot) {
+                const item = document.createElement('div');
+                item.className = 'appointment-item' + (app.status === 'completed' ? ' status-completed' : '');
+                item.innerHTML = `<strong>${app.customer_name}</strong><br><small>${app.machine_model}</small>`;
+                item.onclick = () => openCompletionModal(app);
+                slot.appendChild(item);
+            }
         });
-    } catch (error) {
-        console.error("データ取得失敗:", error);
-    }
+    } catch (e) { console.error(e); }
+}
+
+// 簡易祝日判定関数（主要な固定祝日のみ。本格的には内閣府配布のCSV等が必要ですがまずはこれで）
+function isJapaneseHoliday(date) {
+    const m = date.getMonth() + 1;
+    const d = date.getDate();
+    const holidays = ["1-1", "2-11", "2-23", "4-29", "5-3", "5-4", "5-5", "8-11", "11-3", "11-23"]; // 2026年想定
+    return holidays.includes(`${m}-${d}`);
 }
 
 // --- ステータス管理（モーダル）の処理 ---
