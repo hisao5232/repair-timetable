@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text
@@ -13,23 +13,19 @@ app = FastAPI()
 # CORS設定
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # 接続エラー回避のため一旦すべて許可
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # データベース設定
-POSTGRES_USER = os.getenv("POSTGRES_USER")
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD")
-POSTGRES_DB = os.getenv("POSTGRES_DB")
-DB_HOST = os.getenv("DB_HOST")
-db_url = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{DB_HOST}/{POSTGRES_DB}"
+db_url = f"postgresql://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@{os.getenv('DB_HOST')}/{os.getenv('POSTGRES_DB')}"
 
 engine = create_engine(db_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# --- データベースモデル (1つだけに絞る) ---
+# --- データベースモデル ---
 class Appointment(Base):
     __tablename__ = "appointments"
     id = Column(Integer, primary_key=True, index=True)
@@ -47,12 +43,7 @@ class Appointment(Base):
     completion_notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=dt.datetime.utcnow)
 
-# テーブル作成（エラーが出ないようにtry-exceptで囲む）
-try:
-    Base.metadata.create_all(bind=engine)
-    print("Table created successfully")
-except Exception as e:
-    print(f"Table creation error: {e}")
+Base.metadata.create_all(bind=engine)
 
 # --- Pydanticモデル ---
 class AppointmentCreate(BaseModel):
@@ -108,4 +99,17 @@ def update_appointment_status(app_id: int, item: AppointmentUpdate):
         db.refresh(db_item)
     db.close()
     return db_item
+
+# --- ★マスター管理者向けに削除機能を追加 ---
+@app.delete("/appointments/{app_id}")
+def delete_appointment(app_id: int):
+    db = SessionLocal()
+    db_item = db.query(Appointment).filter(Appointment.id == app_id).first()
+    if not db_item:
+        db.close()
+        raise HTTPException(status_code=404, detail="予約が見つかりません")
+    db.delete(db_item)
+    db.commit()
+    db.close()
+    return {"message": "削除完了"}
     
