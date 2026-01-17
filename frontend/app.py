@@ -38,5 +38,11 @@ def index():
         return redirect(url_for('login'))
     return render_template('index.html', user=session['user'], is_admin=session['is_admin'])
 
+@app.route('/history')
+def history():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('history.html', user=session['user'], is_admin=session['is_admin'])
+    
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
