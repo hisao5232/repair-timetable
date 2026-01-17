@@ -25,7 +25,7 @@ engine = create_engine(db_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# --- データベースモデル ---
+# --- 1. データベースモデル (最初) ---
 class Appointment(Base):
     __tablename__ = "appointments"
     id = Column(Integer, primary_key=True, index=True)
@@ -41,11 +41,11 @@ class Appointment(Base):
     worker_name = Column(String, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     completion_notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=dt.datetime.utcnow)
+    created_at = Column(DateTime, default=dt.datetime.now) # 日本時間に合わせる
 
 Base.metadata.create_all(bind=engine)
 
-# --- Pydanticモデル ---
+# --- 2. Pydanticモデル (関数の前に定義) ---
 class AppointmentCreate(BaseModel):
     customer_name: str
     contact_person: str
@@ -58,13 +58,21 @@ class AppointmentCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 class AppointmentUpdate(BaseModel):
+    customer_name: str
+    contact_person: str
+    phone_number: str
+    machine_model: str
+    serial_number: str
+    location: str
+    failure_symptoms: str
+    appointment_date: datetime
     status: str
-    worker_name: str
-    completion_notes: str
-    completed_at: datetime
+    worker_name: str | None = None
+    completion_notes: str | None = None
+    completed_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)
 
-# --- APIエンドポイント ---
+# --- 3. APIエンドポイント ---
 @app.get("/")
 def read_root():
     return {"status": "Success"}
@@ -87,29 +95,32 @@ def get_appointments():
     return appointments
 
 @app.patch("/appointments/{app_id}")
-def update_appointment_status(app_id: int, item: AppointmentUpdate):
+def update_appointment(app_id: int, item: AppointmentUpdate):
     db = SessionLocal()
     db_item = db.query(Appointment).filter(Appointment.id == app_id).first()
-    if db_item:
-        db_item.status = item.status
-        db_item.worker_name = item.worker_name
-        db_item.completion_notes = item.completion_notes
-        db_item.completed_at = item.completed_at
-        db.commit()
-        db.refresh(db_item)
+    if not db_item:
+        db.close()
+        raise HTTPException(status_code=404, detail="Not Found")
+    
+    # 全項目をループで更新
+    update_data = item.model_dump()
+    for key, value in update_data.items():
+        setattr(db_item, key, value)
+    
+    db.commit()
+    db.refresh(db_item)
     db.close()
     return db_item
 
-# --- ★マスター管理者向けに削除機能を追加 ---
 @app.delete("/appointments/{app_id}")
 def delete_appointment(app_id: int):
     db = SessionLocal()
     db_item = db.query(Appointment).filter(Appointment.id == app_id).first()
     if not db_item:
         db.close()
-        raise HTTPException(status_code=404, detail="予約が見つかりません")
+        raise HTTPException(status_code=404, detail="Not Found")
     db.delete(db_item)
     db.commit()
     db.close()
-    return {"message": "削除完了"}
+    return {"message": "Deleted"}
     

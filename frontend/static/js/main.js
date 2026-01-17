@@ -48,12 +48,25 @@ async function loadTimetable() {
         const response = await fetch(API_BASE_URL);
         const appointments = await response.json();
         appointments.forEach(app => {
+            const dateObj = new Date(app.appointment_date.replace('T', ' '));
+
             const appDate = app.appointment_date.split('T')[0];
+            const timeStr = dateObj.getHours().toString().padStart(2, '0') + ':' + 
+                    dateObj.getMinutes().toString().padStart(2, '0');
+
             const slot = document.getElementById(`day-${appDate}`);
             if (slot) {
                 const item = document.createElement('div');
+                // status-completed クラスを付与
                 item.className = `appointment-item ${app.status === 'completed' ? 'status-completed' : ''}`;
-                item.innerHTML = `<strong>${app.customer_name}</strong><br><small>${app.machine_model}</small>`;
+                
+                // ★ここを修正：時間、客先名、現場名を並べる
+                item.innerHTML = `
+                    <div class="app-time">${timeStr}</div>
+                    <div class="app-customer"><strong>${app.customer_name}</strong></div>
+                    <div class="app-location"><small>📍${app.location}</small></div>
+                `;
+
                 item.onclick = () => openCompletionModal(app);
                 slot.appendChild(item);
             }
@@ -64,13 +77,17 @@ async function loadTimetable() {
 // --- 3. 予約登録処理 ---
 document.getElementById('reservation-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    const rawValue = document.getElementById('appointment_date').value; // "2026-01-20T10:30"
+    if (!rawValue) return;
+
     const data = {
         customer_name: document.getElementById('customer_name').value,
         contact_person: document.getElementById('contact_person').value,
         phone_number: document.getElementById('phone_number').value,
         machine_model: document.getElementById('machine_model').value,
         serial_number: document.getElementById('serial_number').value,
-        appointment_date: new Date(document.getElementById('appointment_date').value).toISOString(),
+        appointment_date: rawValue,
         location: document.getElementById('location').value,
         failure_symptoms: document.getElementById('failure_symptoms').value
     };
@@ -89,32 +106,67 @@ document.getElementById('reservation-form')?.addEventListener('submit', async (e
     } catch (e) { alert('通信エラーが発生しました'); }
 });
 
-// --- 4. モーダル操作 (報告・削除) ---
+// --- 詳細・修正モーダルを開く ---
 function openCompletionModal(app) {
     document.getElementById('status-modal').style.display = 'block';
+    
+    // 隠しフィールドにIDをセット
     document.getElementById('modal-app-id').value = app.id;
-    document.getElementById('modal-customer-name').innerText = `${app.customer_name} 様の報告`;
+    
+    // 各入力フィールドに現在の値をセット（修正可能にする）
+    document.getElementById('edit_customer_name').value = app.customer_name;
+    document.getElementById('edit_contact_person').value = app.contact_person;
+    document.getElementById('edit_phone_number').value = app.phone_number;
+    document.getElementById('edit_machine_model').value = app.machine_model;
+    document.getElementById('edit_serial_number').value = app.serial_number;
+    document.getElementById('edit_location').value = app.location;
+    document.getElementById('edit_failure_symptoms').value = app.failure_symptoms;
+    
+    // 日時をdatetime-local形式 (YYYY-MM-DDTHH:MM) に変換してセット
+    const date = new Date(app.appointment_date.replace('T', ' '));
+    const localISO = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+    document.getElementById('edit_appointment_date').value = localISO;
+
+    // 完了報告用
     document.getElementById('worker_name').value = app.worker_name || '';
     document.getElementById('completion_notes').value = app.completion_notes || '';
 }
 
+// --- 予定を修正・保存（完了報告も含む） ---
 async function submitCompletion() {
     const appId = document.getElementById('modal-app-id').value;
+    
     const data = {
-        status: "completed",
+        // 詳細情報の修正
+        customer_name: document.getElementById('edit_customer_name').value,
+        contact_person: document.getElementById('edit_contact_person').value,
+        phone_number: document.getElementById('edit_phone_number').value,
+        machine_model: document.getElementById('edit_machine_model').value,
+        serial_number: document.getElementById('edit_serial_number').value,
+        location: document.getElementById('edit_location').value,
+        failure_symptoms: document.getElementById('edit_failure_symptoms').value,
+        appointment_date: document.getElementById('edit_appointment_date').value,
+        
+        // 完了報告ステータス
+        status: document.getElementById('worker_name').value ? "completed" : "pending",
         worker_name: document.getElementById('worker_name').value,
         completion_notes: document.getElementById('completion_notes').value,
         completed_at: new Date().toISOString()
     };
+
     const response = await fetch(`${API_BASE_URL}/${appId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     });
-    if (response.ok) { closeModal(); loadTimetable(); }
+
+    if (response.ok) {
+        closeModal();
+        loadTimetable();
+    }
 }
 
-// ★削除ボタン（マスター管理者用）のための関数を追加
+// --- 削除処理 ---
 async function deleteAppointment() {
     if (!confirm("本当にこの予約を削除しますか？")) return;
     const appId = document.getElementById('modal-app-id').value;

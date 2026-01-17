@@ -83,14 +83,16 @@ button {
     border-bottom: 1px solid #eee;
 }
 
+/* 予約アイテム全体のデザイン */
 .appointment-item {
-    background: #e3f2fd;
+    background-color: #e3f2fd; /* 薄い青 */
     border-left: 4px solid #2196f3;
-    margin: 5px 0;
-    padding: 8px;
+    margin-bottom: 4px;
+    padding: 4px;
     font-size: 0.85em;
-    border-radius: 4px;
-    box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+    cursor: pointer;
+    border-radius: 2px;
+    line-height: 1.2;
 }
 
 .location {
@@ -105,4 +107,26 @@ button {
     border-left: 4px solid #666;
     text-decoration: line-through;
     opacity: 0.7;
+}
+
+/* 時間表示 */
+.app-time {
+    font-weight: bold;
+    color: #1976d2;
+    font-size: 0.8em;
+}
+
+/* 現場名（location） */
+.app-location {
+    color: #666;
+    white-space: nowrap;      /* 長い場合は一行で */
+    overflow: hidden;         /* はみ出しを隠す */
+    text-overflow: ellipsis; /* 「...」で省略 */
+}
+
+/* 完了済みのスタイル */
+.status-completed {
+    background-color: #e8f5e9 !important; /* 薄い緑 */
+    border-left-color: #4caf50 !important;
+    color: #888;
 }
