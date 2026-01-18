@@ -51,8 +51,10 @@ async function loadTimetable() {
             const dateObj = new Date(app.appointment_date.replace('T', ' '));
 
             const appDate = app.appointment_date.split('T')[0];
-            const timeStr = dateObj.getHours().toString().padStart(2, '0') + ':' + 
-                    dateObj.getMinutes().toString().padStart(2, '0');
+            const timeStr = (dateObj.getHours() === 0 && dateObj.getMinutes() === 0) 
+                            ? "時間指定なし" 
+                            : dateObj.getHours().toString().padStart(2, '0') + ':' + 
+                            dateObj.getMinutes().toString().padStart(2, '0');
 
             const slot = document.getElementById(`day-${appDate}`);
             if (slot) {
@@ -60,12 +62,11 @@ async function loadTimetable() {
                 // status-completed クラスを付与
                 item.className = `appointment-item ${app.status === 'completed' ? 'status-completed' : ''}`;
                 
-                // ★ここを修正：時間、客先名、現場名を並べる
                 item.innerHTML = `
-                    <div class="app-time">${timeStr}</div>
+                    <div class="app-time" style="${timeStr === '時間指定なし' ? 'color: #777; font-weight: normal;' : ''}">${timeStr}</div>
                     <div class="app-customer"><strong>${app.customer_name}</strong></div>
                     <div class="app-location"><small>📍${app.location}</small></div>
-                `;
+`;
 
                 item.onclick = () => openCompletionModal(app);
                 slot.appendChild(item);
@@ -78,8 +79,14 @@ async function loadTimetable() {
 document.getElementById('reservation-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const rawValue = document.getElementById('appointment_date').value; // "2026-01-20T10:30"
-    if (!rawValue) return;
+    let appointmentDate = document.getElementById('appointment_date').value;
+    const isNoTime = document.getElementById('no_time_specified').checked;
+
+    if (isNoTime && appointmentDate) {
+        // 日付部分だけ抜き出して 00:00 をセット
+        const datePart = appointmentDate.split('T')[0];
+        appointmentDate = `${datePart}T00:00`;
+    }
 
     const data = {
         customer_name: document.getElementById('customer_name').value,
@@ -87,7 +94,7 @@ document.getElementById('reservation-form')?.addEventListener('submit', async (e
         phone_number: document.getElementById('phone_number').value,
         machine_model: document.getElementById('machine_model').value,
         serial_number: document.getElementById('serial_number').value,
-        appointment_date: rawValue,
+        appointment_date: appointmentDate,
         location: document.getElementById('location').value,
         failure_symptoms: document.getElementById('failure_symptoms').value
     };
@@ -122,10 +129,14 @@ function openCompletionModal(app) {
     document.getElementById('edit_location').value = app.location;
     document.getElementById('edit_failure_symptoms').value = app.failure_symptoms;
     
-    // 日時をdatetime-local形式 (YYYY-MM-DDTHH:MM) に変換してセット
+    // 日時のセットと「時間指定なし」の判定
     const date = new Date(app.appointment_date.replace('T', ' '));
     const localISO = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
     document.getElementById('edit_appointment_date').value = localISO;
+
+    // 00:00 だったらチェックボックスをオンにする
+    const isNoTime = (date.getHours() === 0 && date.getMinutes() === 0);
+    document.getElementById('edit_no_time_specified').checked = isNoTime;
 
     // 完了報告用
     document.getElementById('worker_name').value = app.worker_name || '';
@@ -135,6 +146,14 @@ function openCompletionModal(app) {
 // --- 予定を修正・保存（完了報告も含む） ---
 async function submitCompletion() {
     const appId = document.getElementById('modal-app-id').value;
+    let appointmentDate = document.getElementById('edit_appointment_date').value;
+    const isNoTime = document.getElementById('edit_no_time_specified').checked;
+
+    if (isNoTime && appointmentDate) {
+        // チェックが入っていたら時間を 00:00 に強制上書き
+        const datePart = appointmentDate.split('T')[0];
+        appointmentDate = `${datePart}T00:00`;
+    }
     
     const data = {
         // 詳細情報の修正
@@ -145,7 +164,7 @@ async function submitCompletion() {
         serial_number: document.getElementById('edit_serial_number').value,
         location: document.getElementById('edit_location').value,
         failure_symptoms: document.getElementById('edit_failure_symptoms').value,
-        appointment_date: document.getElementById('edit_appointment_date').value,
+        appointment_date: appointmentDate, // 修正した日時を使用
         
         // 完了報告ステータス
         status: document.getElementById('worker_name').value ? "completed" : "pending",
