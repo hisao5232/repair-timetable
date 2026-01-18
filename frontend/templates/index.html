@@ -43,6 +43,21 @@
                     <input type="text" id="phone_number" placeholder="連絡先" required>
                 </div>
                 <div class="form-group">
+                    <input type="text" id="received_by" placeholder="受付担当者名">
+                    <label style="font-size: 0.9em; cursor: pointer;">
+                        <input type="checkbox" id="is_own_lease" onchange="toggleLeaseLocation('new')"> 自社リース機
+                    </label>
+                    <select id="lease_location" style="display: none; padding: 5px; border-radius: 4px;">
+                        <option value="">拠点を選択</option>
+                        <option value="町田">町田</option>
+                        <option value="厚木">厚木</option>
+                        <option value="相模原">相模原</option>
+                        <option value="大和">大和</option>
+                        <option value="工場">工場</option>
+                        <option value="双葉">双葉</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <input type="text" id="machine_model" placeholder="型式 (例: PC200-10)" required>
                     <input type="text" id="serial_number" placeholder="シリアルNo" required>
                     <div style="display: flex; flex-direction: column; gap: 5px;">
@@ -89,6 +104,24 @@
                     <label style="font-size: 0.8em; color: #666; cursor: pointer; display: block; margin-top: 4px;">
                         <input type="checkbox" id="edit_no_time_specified"> 時間指定なし
                     </label>
+                </div>
+                <div class="modal-field-group">
+                    <label>受付担当</label>
+                    <input type="text" id="edit_received_by">
+                </div>
+                <div class="modal-field-group">
+                    <label style="cursor: pointer;">
+                        <input type="checkbox" id="edit_is_own_lease" onchange="toggleLeaseLocation('edit')"> 自社リース機
+                    </label>
+                    <select id="edit_lease_location" style="display: none; width: 100%; margin-top: 5px; padding: 8px;">
+                        <option value="">拠点を選択</option>
+                        <option value="町田">町田</option>
+                        <option value="厚木">厚木</option>
+                        <option value="相模原">相模原</option>
+                        <option value="大和">大和</option>
+                        <option value="工場">工場</option>
+                        <option value="双葉">双葉</option>
+                    </select>
                 </div>
                 <div class="modal-field-group">
                     <label>型式</label>

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import os
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from pydantic import BaseModel, ConfigDict
@@ -42,6 +42,9 @@ class Appointment(Base):
     completed_at = Column(DateTime, nullable=True)
     completion_notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=dt.datetime.now) # 日本時間に合わせる
+    received_by = Column(String, nullable=True)        # 受付担当
+    is_own_lease = Column(Boolean, default=False)      # 自社リース機フラグ
+    lease_location = Column(String, nullable=True)     # リース拠点
 
 Base.metadata.create_all(bind=engine)
 
@@ -56,6 +59,9 @@ class AppointmentCreate(BaseModel):
     location: str
     appointment_date: datetime
     model_config = ConfigDict(from_attributes=True)
+    received_by: str | None = None
+    is_own_lease: bool = False
+    lease_location: str | None = None
 
 class AppointmentUpdate(BaseModel):
     customer_name: str
@@ -71,6 +77,9 @@ class AppointmentUpdate(BaseModel):
     completion_notes: str | None = None
     completed_at: datetime | None = None
     model_config = ConfigDict(from_attributes=True)
+    received_by: str | None = None
+    is_own_lease: bool = False
+    lease_location: str | None = None
 
 # --- 3. APIエンドポイント ---
 @app.get("/")

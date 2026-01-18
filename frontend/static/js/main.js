@@ -59,14 +59,13 @@ async function loadTimetable() {
             const slot = document.getElementById(`day-${appDate}`);
             if (slot) {
                 const item = document.createElement('div');
-                // status-completed クラスを付与
                 item.className = `appointment-item ${app.status === 'completed' ? 'status-completed' : ''}`;
                 
                 item.innerHTML = `
                     <div class="app-time" style="${timeStr === '時間指定なし' ? 'color: #777; font-weight: normal;' : ''}">${timeStr}</div>
                     <div class="app-customer"><strong>${app.customer_name}</strong></div>
                     <div class="app-location"><small>📍${app.location}</small></div>
-`;
+                `;
 
                 item.onclick = () => openCompletionModal(app);
                 slot.appendChild(item);
@@ -83,7 +82,6 @@ document.getElementById('reservation-form')?.addEventListener('submit', async (e
     const isNoTime = document.getElementById('no_time_specified').checked;
 
     if (isNoTime && appointmentDate) {
-        // 日付部分だけ抜き出して 00:00 をセット
         const datePart = appointmentDate.split('T')[0];
         appointmentDate = `${datePart}T00:00`;
     }
@@ -96,7 +94,13 @@ document.getElementById('reservation-form')?.addEventListener('submit', async (e
         serial_number: document.getElementById('serial_number').value,
         appointment_date: appointmentDate,
         location: document.getElementById('location').value,
-        failure_symptoms: document.getElementById('failure_symptoms').value
+        failure_symptoms: document.getElementById('failure_symptoms').value,
+        // 追加項目
+        received_by: document.getElementById('received_by').value,
+        is_own_lease: document.getElementById('is_own_lease').checked,
+        lease_location: document.getElementById('is_own_lease').checked 
+                        ? document.getElementById('lease_location').value 
+                        : ""
     };
 
     try {
@@ -108,19 +112,19 @@ document.getElementById('reservation-form')?.addEventListener('submit', async (e
         if (response.ok) {
             alert('登録完了！');
             e.target.reset();
+            // セレクトボックスを隠す
+            document.getElementById('lease_location').style.display = 'none';
             loadTimetable();
         }
     } catch (e) { alert('通信エラーが発生しました'); }
 });
 
-// --- 詳細・修正モーダルを開く ---
+// --- 4. 詳細・修正モーダルを開く ---
 function openCompletionModal(app) {
     document.getElementById('status-modal').style.display = 'block';
-    
-    // 隠しフィールドにIDをセット
     document.getElementById('modal-app-id').value = app.id;
     
-    // 各入力フィールドに現在の値をセット（修正可能にする）
+    // 基本情報のセット
     document.getElementById('edit_customer_name').value = app.customer_name;
     document.getElementById('edit_contact_person').value = app.contact_person;
     document.getElementById('edit_phone_number').value = app.phone_number;
@@ -128,13 +132,19 @@ function openCompletionModal(app) {
     document.getElementById('edit_serial_number').value = app.serial_number;
     document.getElementById('edit_location').value = app.location;
     document.getElementById('edit_failure_symptoms').value = app.failure_symptoms;
+
+    // 追加項目のセット
+    document.getElementById('edit_received_by').value = app.received_by || "";
+    document.getElementById('edit_is_own_lease').checked = app.is_own_lease || false;
+    document.getElementById('edit_lease_location').value = app.lease_location || "";
+    // リース拠点の表示切り替え
+    toggleLeaseLocation('edit');
     
     // 日時のセットと「時間指定なし」の判定
     const date = new Date(app.appointment_date.replace('T', ' '));
     const localISO = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
     document.getElementById('edit_appointment_date').value = localISO;
 
-    // 00:00 だったらチェックボックスをオンにする
     const isNoTime = (date.getHours() === 0 && date.getMinutes() === 0);
     document.getElementById('edit_no_time_specified').checked = isNoTime;
 
@@ -143,20 +153,18 @@ function openCompletionModal(app) {
     document.getElementById('completion_notes').value = app.completion_notes || '';
 }
 
-// --- 予定を修正・保存（完了報告も含む） ---
+// --- 5. 予定を修正・保存 ---
 async function submitCompletion() {
     const appId = document.getElementById('modal-app-id').value;
     let appointmentDate = document.getElementById('edit_appointment_date').value;
     const isNoTime = document.getElementById('edit_no_time_specified').checked;
 
     if (isNoTime && appointmentDate) {
-        // チェックが入っていたら時間を 00:00 に強制上書き
         const datePart = appointmentDate.split('T')[0];
         appointmentDate = `${datePart}T00:00`;
     }
     
     const data = {
-        // 詳細情報の修正
         customer_name: document.getElementById('edit_customer_name').value,
         contact_person: document.getElementById('edit_contact_person').value,
         phone_number: document.getElementById('edit_phone_number').value,
@@ -164,9 +172,15 @@ async function submitCompletion() {
         serial_number: document.getElementById('edit_serial_number').value,
         location: document.getElementById('edit_location').value,
         failure_symptoms: document.getElementById('edit_failure_symptoms').value,
-        appointment_date: appointmentDate, // 修正した日時を使用
+        appointment_date: appointmentDate,
         
-        // 完了報告ステータス
+        // 追加項目の修正
+        received_by: document.getElementById('edit_received_by').value,
+        is_own_lease: document.getElementById('edit_is_own_lease').checked,
+        lease_location: document.getElementById('edit_is_own_lease').checked 
+                        ? document.getElementById('edit_lease_location').value 
+                        : "",
+
         status: document.getElementById('worker_name').value ? "completed" : "pending",
         worker_name: document.getElementById('worker_name').value,
         completion_notes: document.getElementById('completion_notes').value,
@@ -185,7 +199,7 @@ async function submitCompletion() {
     }
 }
 
-// --- 削除処理 ---
+// --- 6. 削除・閉じる処理 ---
 async function deleteAppointment() {
     if (!confirm("本当にこの予約を削除しますか？")) return;
     const appId = document.getElementById('modal-app-id').value;
@@ -195,22 +209,34 @@ async function deleteAppointment() {
 
 function closeModal() { document.getElementById('status-modal').style.display = 'none'; }
 
-// --- 5. 祝日判定 (2026年対応版) ---
+// --- 7. 祝日判定 (2026年対応版) ---
 function isJapaneseHoliday(date) {
     const m = date.getMonth() + 1;
     const d = date.getDate();
     const w = date.getDay();
     const nth = Math.floor((d - 1) / 7) + 1;
-    // 固定祝日
     const fixed = ["1-1", "2-11", "2-23", "4-29", "5-3", "5-4", "5-5", "8-11", "11-3", "11-23"];
     if (fixed.includes(`${m}-${d}`)) return true;
-    // ハッピーマンデー & 振替(2026年5月6日)
-    if (m === 1 && nth === 2 && w === 1) return true; // 成人の日
-    if (m === 5 && d === 6) return true; // 憲法記念日振替
-    if (m === 7 && nth === 3 && w === 1) return true; // 海の日
-    if (m === 9 && nth === 3 && w === 1) return true; // 敬老の日
-    if (m === 10 && nth === 2 && w === 1) return true; // スポーツの日
-    // 春分・秋分
+    if (m === 1 && nth === 2 && w === 1) return true; 
+    if (m === 5 && d === 6) return true; 
+    if (m === 7 && nth === 3 && w === 1) return true; 
+    if (m === 9 && nth === 3 && w === 1) return true; 
+    if (m === 10 && nth === 2 && w === 1) return true; 
     if ((m === 3 && d === 20) || (m === 9 && d === 22)) return true;
     return false;
+}
+
+// --- 8. リース拠点表示切り替え ---
+function toggleLeaseLocation(type) {
+    const isChecked = type === 'new' 
+        ? document.getElementById('is_own_lease').checked 
+        : document.getElementById('edit_is_own_lease').checked;
+    
+    const selectBox = type === 'new' 
+        ? document.getElementById('lease_location') 
+        : document.getElementById('edit_lease_location');
+    
+    if(selectBox) {
+        selectBox.style.display = isChecked ? 'block' : 'none';
+    }
 }
