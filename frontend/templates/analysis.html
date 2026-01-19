@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>故障原因分析 - Repair-Time</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <style>
+        .search-area { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #dee2e6; }
+        .chart-container { background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; max-width: 600px; margin: 0 auto; }
+        #no-data-msg { text-align: center; color: #666; margin-top: 20px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header-bar" style="display: flex; justify-content: space-between; align-items: center; background: #333; color: white; padding: 10px 20px; border-radius: 4px; margin-bottom: 20px;">
+            <div><strong>📊 故障原因分析</strong></div>
+            <a href="/" style="background: #6c757d; color: white; text-decoration: none; padding: 5px 15px; border-radius: 4px; font-size: 0.9em;">カレンダーに戻る</a>
+        </header>
+
+        <div class="search-area">
+            <label><strong>分析したい型式を入力:</strong></label>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <input type="text" id="machine-search" placeholder="例: PC200-10" style="flex: 1; padding: 10px; border-radius: 4px; border: 1px solid #ccc;">
+                <button onclick="analyzeData()" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">分析実行</button>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="causeChart"></canvas>
+            <div id="no-data-msg">該当する型式の完了済みデータが見つかりませんでした。</div>
+        </div>
+    </div>
+
+    <script>
+        let myChart = null;
+
+        async function analyzeData() {
+            const modelName = document.getElementById('machine-search').value.trim().toLowerCase();
+            if (!modelName) return;
+
+            try {
+                const response = await fetch('https://repair-api.go-pro-world.net/appointments');
+                const allData = await response.json();
+
+                // 完了済み(status: completed) かつ 型式が一致するデータを抽出
+                const filtered = allData.filter(app => 
+                    app.status === 'completed' && 
+                    app.machine_model && 
+                    app.machine_model.toLowerCase().includes(modelName)
+                );
+
+                if (filtered.length === 0) {
+                    document.getElementById('no-data-msg').style.display = 'block';
+                    if (myChart) myChart.destroy();
+                    return;
+                }
+                document.getElementById('no-data-msg').style.display = 'none';
+
+                // カテゴリーの集計
+                const counts = { "燃料系": 0, "電気系": 0, "油圧系": 0, "構造系": 0, "定期点検": 0, "先方都合": 0 };
+                filtered.forEach(app => {
+                    if (app.cause_categories) {
+                        app.cause_categories.split(',').forEach(cat => {
+                            if (counts.hasOwnProperty(cat.trim())) {
+                                counts[cat.trim()]++;
+                            }
+                        });
+                    }
+                });
+
+                updateChart(counts, modelName.toUpperCase());
+
+            } catch (e) {
+                console.error("分析エラー:", e);
+                alert("データの取得に失敗しました。");
+            }
+        }
+
+        function updateChart(counts, label) {
+            const ctx = document.getElementById('causeChart').getContext('2d');
+            
+            if (myChart) myChart.destroy(); // 既存のグラフを破棄
+
+            myChart = new Chart(ctx, {
+                type: 'bar', // 横棒グラフ(index 0.4.0以降は 'bar' で indexAxis: 'y' を指定)
+                data: {
+                    labels: Object.keys(counts),
+                    datasets: [{
+                        label: `${label} の故障原因分布 (件数)`,
+                        data: Object.values(counts),
+                        backgroundColor: [
+                            '#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff', '#ff9f40'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y', // 横棒グラフにする
+                    responsive: true,
+                    scales: {
+                        x: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

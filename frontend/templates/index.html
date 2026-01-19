@@ -33,6 +33,7 @@
                 👤 ログイン中 : <strong>{{ user }}</strong>
                 {% if is_admin %}<span class="admin-badge">管理者</span>{% endif %}
                 <a href="/history" style="margin-left: 15px; color: #add8e6; text-decoration: none; font-size: 0.9em;">🔍 履歴検索</a>
+                <a href="/analysis" style="margin-left: 15px; color: #98fb98; text-decoration: none; font-size: 0.9em;">📊 故障原因分析</a>
             </div>
             <a href="{{ url_for('logout') }}" class="logout-btn">ログアウト</a>
         </header>

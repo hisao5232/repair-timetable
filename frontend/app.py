@@ -43,6 +43,12 @@ def history():
     if 'user' not in session:
         return redirect(url_for('login'))
     return render_template('history.html', user=session['user'], is_admin=session['is_admin'])
-    
+
+@app.route('/analysis')
+def analysis():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('analysis.html', user=session['user'])
+        
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
