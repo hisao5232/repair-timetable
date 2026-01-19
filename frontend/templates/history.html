@@ -11,13 +11,24 @@
         .history-table th, .history-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
         .history-table th { background: #f4f4f4; position: sticky; top: 0; }
         .history-table tr:hover { background: #f9f9f9; }
+        .detail-btn { background: #007bff; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+
+        /* モーダル内のスタイル（index.htmlから移植） */
+        .modal-field-group { margin-bottom: 12px; }
+        .modal-field-group label { display: block; font-size: 0.8em; color: #666; margin-bottom: 2px; }
+        .modal-field-group input, .modal-field-group textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px; }
+        .checkbox-group label { background: #fff; border: 1px solid #ddd; padding: 5px 10px; border-radius: 20px; font-size: 0.85em; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .checkbox-group input { width: auto; }
+        #status-modal { max-height: 90vh; overflow-y: auto; display:none; background: #fff; border: 1px solid #000; padding: 20px; position: fixed; top: 5%; left: 50%; transform: translateX(-50%); z-index: 1000; box-shadow: 0 4px 25px rgba(0,0,0,0.4); border-radius: 8px; width: 95%; max-width: 480px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <header class="header-bar">
+        <header class="header-bar" style="display: flex; justify-content: space-between; align-items: center; background: #333; color: white; padding: 10px 20px; border-radius: 4px; margin-bottom: 20px;">
             <div><strong>🔍 修理履歴検索</strong></div>
-            <a href="/" class="logout-btn" style="background: #6c757d;">カレンダーに戻る</a>
+            <a href="/" style="background: #6c757d; color: white; text-decoration: none; padding: 5px 15px; border-radius: 4px; font-size: 0.9em;">カレンダーに戻る</a>
         </header>
 
         <div class="search-box">
@@ -32,22 +43,113 @@
                     <th>型式</th>
                     <th>現場</th>
                     <th>作業者</th>
-                    <th>作業内容</th>
+                    <th>詳細</th>
                 </tr>
             </thead>
-            <tbody id="history-list">
-                </tbody>
+            <tbody id="history-list"></tbody>
         </table>
     </div>
 
+    <div id="status-modal">
+        <h3 style="margin-top:0;">📝 予定の詳細・修正</h3>
+        <input type="hidden" id="modal-app-id">
+        
+        <div class="modal-grid">
+            <div class="modal-field-group">
+                <label>顧客名</label>
+                <input type="text" id="edit_customer_name">
+            </div>
+            <div class="modal-field-group">
+                <label>担当者</label>
+                <input type="text" id="edit_contact_person">
+            </div>
+            <div class="modal-field-group">
+                <label>連絡先</label>
+                <input type="text" id="edit_phone_number">
+            </div>
+            <div class="modal-field-group">
+                <label>日時</label>
+                <input type="datetime-local" id="edit_appointment_date">
+                <label style="font-size: 0.8em; color: #666; cursor: pointer; display: block; margin-top: 4px;">
+                    <input type="checkbox" id="edit_no_time_specified"> 時間指定なし
+                </label>
+            </div>
+            <div class="modal-field-group">
+                <label>受付担当</label>
+                <input type="text" id="edit_received_by">
+            </div>
+            <div class="modal-field-group">
+                <label style="cursor: pointer;">
+                    <input type="checkbox" id="edit_is_own_lease" onchange="toggleLeaseLocation('edit')"> 自社リース機
+                </label>
+                <select id="edit_lease_location" style="display: none; width: 100%; margin-top: 5px; padding: 8px;">
+                    <option value="">拠点を選択</option>
+                    <option value="町田">町田</option>
+                    <option value="厚木">厚木</option>
+                    <option value="相模原">相模原</option>
+                    <option value="大和">大和</option>
+                    <option value="工場">工場</option>
+                    <option value="双葉">双葉</option>
+                </select>
+            </div>
+            <div class="modal-field-group">
+                <label>型式</label>
+                <input type="text" id="edit_machine_model">
+            </div>
+            <div class="modal-field-group">
+                <label>シリアル No</label>
+                <input type="text" id="edit_serial_number">
+            </div>
+        </div>
+
+        <div class="modal-field-group">
+            <label>現場住所</label>
+            <input type="text" id="edit_location">
+        </div>
+        <div class="modal-field-group">
+            <label>故障症状・メモ</label>
+            <textarea id="edit_failure_symptoms" style="height: 60px;"></textarea>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        
+        <h4 style="margin: 0 0 10px 0;">✅ 修理完了報告</h4>
+        
+        <div class="modal-field-group">
+            <label>故障原因カテゴリー (複数選択可)</label>
+            <div class="checkbox-group" id="modal-category-group">
+                <label><input type="checkbox" value="燃料系"> 燃料系</label>
+                <label><input type="checkbox" value="電気系"> 電気系</label>
+                <label><input type="checkbox" value="油圧系"> 油圧系</label>
+                <label><input type="checkbox" value="構造系"> 構造系</label>
+                <label><input type="checkbox" value="定期点検"> 定期点検</label>
+                <label><input type="checkbox" value="先方都合"> 先方都合</label>
+            </div>
+        </div>
+
+        <div class="modal-field-group">
+            <input type="text" id="worker_name" placeholder="作業者名 (例 : 自分の名前)">
+        </div>
+        <div class="modal-field-group">
+            <textarea id="completion_notes" placeholder="交換部品や作業内容の備考" style="height: 60px;"></textarea>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <button onclick="submitCompletion()" style="background-color: #28a745; color: white; border: none; padding: 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 1em;">内容を更新 / 完了として保存</button>
+            <div style="display: flex; gap: 8px;">
+                <button onclick="deleteAppointment()" style="flex: 1; background-color: white; color: #d9534f; border: 1px solid #d9534f; padding: 10px; border-radius: 4px; cursor: pointer;">この予約を削除</button>
+                <button onclick="closeModal()" style="flex: 1; background-color: #6c757d; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer;">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     <script>
         let allAppointments = [];
-
         async function loadHistory() {
             try {
                 const response = await fetch('https://repair-api.go-pro-world.net/appointments');
                 allAppointments = await response.json();
-                // 日時が新しい順に並び替え
                 allAppointments.sort((a, b) => new Date(b.appointment_date) - new Date(a.appointment_date));
                 displayHistory(allAppointments);
             } catch (e) { console.error('データ取得失敗:', e); }
@@ -55,21 +157,24 @@
 
         function displayHistory(data) {
             const list = document.getElementById('history-list');
-            list.innerHTML = data.map(app => `
-                <tr>
-                    <td>${app.appointment_date.split('T')[0]}</td>
+            list.innerHTML = '';
+            data.forEach(app => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${app.appointment_date.replace('T', ' ')}</td>
                     <td><strong>${app.customer_name}</strong></td>
                     <td>${app.machine_model}</td>
                     <td>${app.location}</td>
                     <td>${app.worker_name || '-'}</td>
-                    <td><small>${app.completion_notes || '-'}</small></td>
-                </tr>
-            `).join('');
+                    <td><button class="detail-btn" onclick='openCompletionModal(${JSON.stringify(app)})'>詳細</button></td>
+                `;
+                list.appendChild(tr);
+            });
         }
 
         function filterHistory() {
             const query = document.getElementById('search-input').value.toLowerCase();
-            const filtered = allAppointments.filter(app => 
+            const filtered = allAppointments.filter(app =>
                 app.customer_name.toLowerCase().includes(query) ||
                 app.machine_model.toLowerCase().includes(query) ||
                 app.location.toLowerCase().includes(query) ||
@@ -77,7 +182,6 @@
             );
             displayHistory(filtered);
         }
-
         document.addEventListener('DOMContentLoaded', loadHistory);
     </script>
 </body>

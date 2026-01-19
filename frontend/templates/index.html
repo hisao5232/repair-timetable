@@ -16,18 +16,21 @@
         .modal-field-group input, .modal-field-group textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
         .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         
+        /* 検索ボックスとチェックボックスのスタイル */
+        .search-container { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #dee2e6; }
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px; }
+        .checkbox-group label { background: #fff; border: 1px solid #ddd; padding: 5px 10px; border-radius: 20px; font-size: 0.85em; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .checkbox-group input { width: auto; }
+
         /* スクロール対応 */
-        #status-modal {
-            max-height: 90vh;
-            overflow-y: auto;
-        }
+        #status-modal { max-height: 90vh; overflow-y: auto; }
     </style>
 </head>
 <body>
     <div class="container">
         <header class="header-bar">
             <div>
-                👤 ログイン中: <strong>{{ user }}</strong>
+                👤 ログイン中 : <strong>{{ user }}</strong>
                 {% if is_admin %}<span class="admin-badge">管理者</span>{% endif %}
                 <a href="/history" style="margin-left: 15px; color: #add8e6; text-decoration: none; font-size: 0.9em;">🔍 履歴検索</a>
             </div>
@@ -58,8 +61,8 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <input type="text" id="machine_model" placeholder="型式 (例: PC200-10)" required>
-                    <input type="text" id="serial_number" placeholder="シリアルNo" required>
+                    <input type="text" id="machine_model" placeholder="型式 (例 : PC200-10)" required>
+                    <input type="text" id="serial_number" placeholder="シリアル No" required>
                     <div style="display: flex; flex-direction: column; gap: 5px;">
                         <input type="datetime-local" id="appointment_date" required>
                         <label style="font-size: 0.8em; color: #666; cursor: pointer;">
@@ -77,14 +80,27 @@
 
         <section class="timetable-section">
             <h2>📅 スケジュール (4週間)</h2>
-            <div class="timetable-grid">
+            
+            <div class="search-container">
+                <strong style="font-size: 0.9em;">🔍 カテゴリーで絞り込み:</strong>
+                <div class="checkbox-group" id="filter-category-group">
+                    <label><input type="radio" name="search_cat" value="" checked onchange="loadTimetable()"> すべて</label>
+                    <label><input type="radio" name="search_cat" value="燃料系" onchange="loadTimetable()"> 燃料系</label>
+                    <label><input type="radio" name="search_cat" value="電気系" onchange="loadTimetable()"> 電気系</label>
+                    <label><input type="radio" name="search_cat" value="油圧系" onchange="loadTimetable()"> 油圧系</label>
+                    <label><input type="radio" name="search_cat" value="構造系" onchange="loadTimetable()"> 構造系</label>
+                    <label><input type="radio" name="search_cat" value="定期点検" onchange="loadTimetable()"> 定期点検</label>
+                    <label><input type="radio" name="search_cat" value="先方都合" onchange="loadTimetable()"> 先方都合</label>
                 </div>
+            </div>
+
+            <div class="timetable-grid"></div>
         </section>
 
         <div id="status-modal" style="display:none; background: #fff; border: 1px solid #000; padding: 20px; position: fixed; top: 5%; left: 50%; transform: translateX(-50%); z-index: 1000; box-shadow: 0 4px 25px rgba(0,0,0,0.4); border-radius: 8px; width: 95%; max-width: 480px;">
             <h3 style="margin-top:0;">📝 予定の詳細・修正</h3>
             <input type="hidden" id="modal-app-id">
-
+            
             <div class="modal-grid">
                 <div class="modal-field-group">
                     <label>顧客名</label>
@@ -128,7 +144,7 @@
                     <input type="text" id="edit_machine_model">
                 </div>
                 <div class="modal-field-group">
-                    <label>シリアルNo</label>
+                    <label>シリアル No</label>
                     <input type="text" id="edit_serial_number">
                 </div>
             </div>
@@ -137,17 +153,29 @@
                 <label>現場住所</label>
                 <input type="text" id="edit_location">
             </div>
-
             <div class="modal-field-group">
                 <label>故障症状・メモ</label>
                 <textarea id="edit_failure_symptoms" style="height: 60px;"></textarea>
             </div>
 
             <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
-
+            
             <h4 style="margin: 0 0 10px 0;">✅ 修理完了報告</h4>
+            
             <div class="modal-field-group">
-                <input type="text" id="worker_name" placeholder="作業者名 (例: 自分の名前)">
+                <label>故障原因カテゴリー (複数選択可)</label>
+                <div class="checkbox-group" id="modal-category-group">
+                    <label><input type="checkbox" value="燃料系"> 燃料系</label>
+                    <label><input type="checkbox" value="電気系"> 電気系</label>
+                    <label><input type="checkbox" value="油圧系"> 油圧系</label>
+                    <label><input type="checkbox" value="構造系"> 構造系</label>
+                    <label><input type="checkbox" value="定期点検"> 定期点検</label>
+                    <label><input type="checkbox" value="先方都合"> 先方都合</label>
+                </div>
+            </div>
+
+            <div class="modal-field-group">
+                <input type="text" id="worker_name" placeholder="作業者名 (例 : 自分の名前)">
             </div>
             <div class="modal-field-group">
                 <textarea id="completion_notes" placeholder="交換部品や作業内容の備考" style="height: 60px;"></textarea>
@@ -155,7 +183,6 @@
 
             <div style="display: flex; flex-direction: column; gap: 8px;">
                 <button onclick="submitCompletion()" style="background-color: #28a745; color: white; border: none; padding: 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 1em;">内容を更新 / 完了として保存</button>
-                
                 <div style="display: flex; gap: 8px;">
                     <button onclick="deleteAppointment()" style="flex: 1; background-color: white; color: #d9534f; border: 1px solid #d9534f; padding: 10px; border-radius: 4px; cursor: pointer;">この予約を削除</button>
                     <button onclick="closeModal()" style="flex: 1; background-color: #6c757d; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer;">閉じる</button>
