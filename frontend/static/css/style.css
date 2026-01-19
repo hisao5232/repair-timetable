@@ -130,3 +130,17 @@ button {
     border-left-color: #4caf50 !important;
     color: #888;
 }
+
+/* 今日を強調するハイライト */
+.day-slot.today {
+    background-color: #fff0f0; /* 薄い赤 */
+    border: 2px solid #ffcccc; /* 枠線も少し赤く */
+}
+
+.day-slot.today .date-label {
+    background-color: #ff5252; /* 日付ラベルを強調 */
+    color: white;
+    font-weight: bold;
+    border-radius: 4px;
+    padding: 2px 5px;
+}

@@ -29,6 +29,9 @@ async function loadTimetable() {
     const diffToMon = now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
     const startDate = new Date(now.getFullYear(), now.getMonth(), diffToMon);
 
+    // 今日の日付を取得 (比較用に YYYY-MM-DD 形式にする)
+    const todayStr = new Date().toLocaleDateString('sv-SE');
+
     // 4週間分（24日分）の枠を作成
     for (let i = 0; i < 24; i++) {
         const targetDate = new Date(startDate);
@@ -38,17 +41,16 @@ async function loadTimetable() {
         const slot = document.createElement('div');
         slot.className = 'day-slot';
         slot.id = `day-${dateStr}`;
+        // 今日の日付ならクラスを付与
+        if (dateStr === todayStr) {
+        slot.classList.add('today');
+        }
         slot.innerHTML = `<div class="date-label">${displayDate}</div>`;
         if (isJapaneseHoliday(targetDate)) slot.classList.add('holiday');
         grid.appendChild(slot);
     }
 
-    // カテゴリー検索パラメータの取得
-    const searchCat = document.querySelector('input[name="search_cat"]:checked')?.value || "";
     let url = API_BASE_URL;
-    if (searchCat) {
-        url += `?category=${encodeURIComponent(searchCat)}`;
-    }
 
     try {
         const response = await fetch(url);
