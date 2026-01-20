@@ -144,3 +144,57 @@ button {
     border-radius: 4px;
     padding: 2px 5px;
 }
+
+/* 顧客名のプレースホルダーを薄い赤に */
+#customer_name::placeholder {
+    color: #ffcccc; /* 薄い赤（ピンク系） */
+    opacity: 1;     /* ブラウザによる透明度の補正 */
+}
+
+/* 型式のプレースホルダーを薄い赤に */
+#machine_model::placeholder {
+    color: #ffcccc;
+    opacity: 1;
+}
+
+/* 入力中の文字まで赤くなると見にくいので、
+   フォーカスした時（入力中）は通常のプレースホルダー色にする設定 */
+#customer_name:focus::placeholder,
+#machine_model:focus::placeholder {
+    color: #ccc;
+}
+
+/* 必須項目の背景をほんのり赤くする場合（お好みで） */
+#customer_name, #machine_model {
+    border-left: 5px solid #ff5252; /* 左側に赤い縦線を入れる */
+    background-color: #fffafa;      /* ごく薄い赤色の背景 */
+}
+
+/* 必須項目のプレースホルダーを薄い赤に */
+#customer_name::placeholder,
+#machine_model::placeholder,
+#appointment_date {
+    color: #ffcccc; /* 薄い赤 */
+    opacity: 1;
+}
+
+/* 日付入力欄（datetime-local）の文字色も、未入力時は薄い赤にする設定 */
+#appointment_date:invalid {
+    color: #ffcccc;
+}
+
+/* 入力中や値が入っている時は、見やすいように黒（通常色）に戻す */
+#customer_name:focus::placeholder,
+#machine_model:focus::placeholder,
+#appointment_date:focus,
+#appointment_date:valid {
+    color: #333;
+}
+
+/* 必須項目の左側に赤い線を引いて、さらに目立たせる（おすすめ） */
+#customer_name, 
+#machine_model, 
+#appointment_date {
+    border-left: 5px solid #ff5252;
+    background-color: #fffafa;
+}

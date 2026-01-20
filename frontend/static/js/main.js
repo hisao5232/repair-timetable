@@ -88,20 +88,27 @@ document.getElementById('reservation-form')?.addEventListener('submit', async (e
     e.preventDefault();
     let appointmentDate = document.getElementById('appointment_date').value;
     const isNoTime = document.getElementById('no_time_specified').checked;
+    
     if (isNoTime && appointmentDate) {
         appointmentDate = `${appointmentDate.split('T')[0]}T00:00`;
     }
 
+    // ★ ヘルパー関数: 空なら「不明」を返す
+    const valOrUnknown = (id, defaultValue = "不明") => {
+        const value = document.getElementById(id).value.trim();
+        return value === "" ? defaultValue : value;
+    };
+
     const data = {
-        customer_name: document.getElementById('customer_name').value,
-        contact_person: document.getElementById('contact_person').value,
-        phone_number: document.getElementById('phone_number').value,
-        machine_model: document.getElementById('machine_model').value,
-        serial_number: document.getElementById('serial_number').value,
-        appointment_date: appointmentDate,
-        location: document.getElementById('location').value,
-        failure_symptoms: document.getElementById('failure_symptoms').value,
-        received_by: document.getElementById('received_by').value,
+        customer_name: document.getElementById('customer_name').value, // 必須
+        machine_model: document.getElementById('machine_model').value, // 必須
+        contact_person: valOrUnknown('contact_person'),
+        phone_number: valOrUnknown('phone_number'),
+        serial_number: valOrUnknown('serial_number'),
+        appointment_date: appointmentDate || new Date().toISOString().slice(0, 16), // 日付がない場合は現在時刻
+        location: valOrUnknown('location', "現場不明"),
+        failure_symptoms: valOrUnknown('failure_symptoms', "症状未確認"),
+        received_by: valOrUnknown('received_by', "未設定"),
         is_own_lease: document.getElementById('is_own_lease').checked,
         lease_location: document.getElementById('is_own_lease').checked ? document.getElementById('lease_location').value : ""
     };
@@ -115,10 +122,14 @@ document.getElementById('reservation-form')?.addEventListener('submit', async (e
         if (response.ok) {
             alert('登録完了！');
             e.target.reset();
-            document.getElementById('lease_location').style.display = 'none';
             loadTimetable();
+        } else {
+            const errorData = await response.json();
+            alert('登録エラー: ' + (errorData.detail || 'サーバーエラー'));
         }
-    } catch (e) { alert('通信エラーが発生しました'); }
+    } catch (e) { 
+        alert('通信エラーが発生しました'); 
+    }
 });
 
 // --- 4. 詳細モーダルを開く (共通) ---

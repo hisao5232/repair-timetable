@@ -42,9 +42,9 @@
             <h2>🛠️ 新規予約登録</h2>
             <form id="reservation-form">
                 <div class="form-group">
-                    <input type="text" id="customer_name" placeholder="顧客名" required>
-                    <input type="text" id="contact_person" placeholder="先方担当者" required>
-                    <input type="text" id="phone_number" placeholder="連絡先" required>
+                    <input type="text" id="customer_name" placeholder="顧客名 (必須)" required>
+                    <input type="text" id="contact_person" placeholder="先方担当者">
+                    <input type="text" id="phone_number" placeholder="連絡先">
                 </div>
                 <div class="form-group">
                     <input type="text" id="received_by" placeholder="受付担当者名">
@@ -62,8 +62,8 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <input type="text" id="machine_model" placeholder="型式 (例 : PC200-10)" required>
-                    <input type="text" id="serial_number" placeholder="シリアル No" required>
+                    <input type="text" id="machine_model" placeholder="型式 (必須)" required>
+                    <input type="text" id="serial_number" placeholder="シリアル or 機番">
                     <div style="display: flex; flex-direction: column; gap: 5px;">
                         <input type="datetime-local" id="appointment_date" required>
                         <label style="font-size: 0.8em; color: #666; cursor: pointer;">
@@ -71,7 +71,7 @@
                         </label>
                     </div>
                 </div>
-                <input type="text" id="location" placeholder="現場住所" style="width: 100%; margin-bottom: 10px;" required>
+                <input type="text" id="location" placeholder="現場住所" style="width: 100%; margin-bottom: 10px;">
                 <textarea id="failure_symptoms" placeholder="故障症状・メモ"></textarea>
                 <button type="submit">予約を登録する</button>
             </form>
