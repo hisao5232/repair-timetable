@@ -6,7 +6,19 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <style>
         .search-area { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #dee2e6; }
-        .chart-container { background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; max-width: 600px; margin: 0 auto; }
+        
+        .chart-container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            border: 1px solid #ddd; 
+            width: 100%;           /* 幅を広げる */
+            max-width: 800px;      /* 最大幅を少し大きく */
+            margin: 0 auto; 
+            position: relative;    /* 必須 */
+            height: auto;          /* 高さは中身に合わせる */
+        }
+        
         #no-data-msg { text-align: center; color: #666; margin-top: 20px; display: none; }
     </style>
 </head>
@@ -26,7 +38,8 @@
         </div>
 
         <div class="chart-container">
-            <canvas id="causeChart"></canvas>
+            <div style="min-height: 400px;"> <canvas id="causeChart"></canvas>
+            </div>
             <div id="no-data-msg">該当する型式の完了済みデータが見つかりませんでした。</div>
         </div>
     </div>
@@ -69,6 +82,7 @@
                 });
 
                 updateChart(counts, modelName.toUpperCase());
+                document.querySelector('.chart-container').scrollIntoView({ behavior: 'smooth' });
 
             } catch (e) {
                 console.error("分析エラー:", e);
@@ -82,7 +96,7 @@
             if (myChart) myChart.destroy(); // 既存のグラフを破棄
 
             myChart = new Chart(ctx, {
-                type: 'bar', // 横棒グラフ(index 0.4.0以降は 'bar' で indexAxis: 'y' を指定)
+                type: 'bar',
                 data: {
                     labels: Object.keys(counts),
                     datasets: [{
@@ -91,14 +105,32 @@
                         backgroundColor: [
                             '#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff', '#ff9f40'
                         ],
-                        borderWidth: 1
+                        borderWidth: 1,
+                        barThickness: 30 // 棒の太さを固定して見やすくする
                     }]
                 },
                 options: {
-                    indexAxis: 'y', // 横棒グラフにする
+                    indexAxis: 'y',
                     responsive: true,
+                    maintainAspectRatio: false, // ★これをfalseにすることで、コンテナの高さに合わせる
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { font: { size: 14 } } // 文字を大きく
+                        }
+                    },
                     scales: {
-                        x: { beginAtZero: true, ticks: { stepSize: 1 } }
+                        x: { 
+                            beginAtZero: true, 
+                            ticks: { stepSize: 1, font: { size: 14 } } 
+                        },
+                        y: {
+                            ticks: { 
+                                font: { size: 14, weight: 'bold' }, // 左側の「燃料系」などの文字を大きく
+                                autoSkip: false // 全てのラベルを必ず表示
+                            }
+                        }
                     }
                 }
             });
