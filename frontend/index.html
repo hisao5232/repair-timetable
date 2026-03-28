@@ -87,7 +87,14 @@
         <hr>
 
         <section class="timetable-section">
-            <h2>📅 スケジュール (4週間)</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h2 id="calendar-month-title">📅 スケジュール</h2>
+                <div>
+                    <button onclick="changeMonth(-1)" style="padding: 5px 15px; cursor: pointer;">◀ 前の月</button>
+                    <button onclick="changeMonth(0)" style="padding: 5px 15px; cursor: pointer;">今月</button>
+                    <button onclick="changeMonth(1)" style="padding: 5px 15px; cursor: pointer;">次の月 ▶</button>
+                </div>
+            </div>
             <div class="timetable-grid"></div>
         </section>
 

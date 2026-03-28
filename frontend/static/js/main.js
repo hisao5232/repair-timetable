@@ -1,19 +1,30 @@
 // --- 共通設定 ---
 const API_BASE_URL = 'https://repair-api.go-pro-world.net/appointments';
+let currentMonthOffset = 0; // 今月からのズレ
 
-// --- 1. 初期化処理 ---
+// ページ読み込み時の処理
 document.addEventListener('DOMContentLoaded', () => {
-    // 現在のページによって処理を分岐
-    if (document.querySelector('.timetable-grid')) {
-        loadTimetable();
+    const grid = document.querySelector('.timetable-grid');
+    if (grid) {
+        renderCalendar(); // カレンダー表示
     }
 });
 
-// --- 2. カレンダー読み込みと表示 (index.html用) ---
-async function loadTimetable() {
+// --- 1. カレンダー描画ロジック ---
+async function renderCalendar() {
     const grid = document.querySelector('.timetable-grid');
     if (!grid) return;
     grid.innerHTML = '';
+
+    // 表示する月の基準日（1日）を計算
+    const now = new Date();
+    const displayMonth = new Date(now.getFullYear(), now.getMonth() + currentMonthOffset, 1);
+    
+    // タイトルの更新 (index.htmlに id="calendar-month-title" がある前提)
+    const titleEl = document.getElementById('calendar-month-title');
+    if (titleEl) {
+        titleEl.textContent = `📅 ${displayMonth.getFullYear()}年${displayMonth.getMonth() + 1}月`;
+    }
 
     // 月〜土のヘッダー作成
     ['月', '火', '水', '木', '金', '土'].forEach(day => {
@@ -23,48 +34,67 @@ async function loadTimetable() {
         grid.appendChild(div);
     });
 
-    // 今週の月曜日を計算
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const diffToMon = now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
-    const startDate = new Date(now.getFullYear(), now.getMonth(), diffToMon);
-
-    // 今日の日付を取得 (比較用に YYYY-MM-DD 形式にする)
+    // その月の末日を取得
+    const lastDay = new Date(displayMonth.getFullYear(), displayMonth.getMonth() + 1, 0).getDate();
     const todayStr = new Date().toLocaleDateString('sv-SE');
 
-    // 4週間分（24日分）の枠を作成
-    for (let i = 0; i < 24; i++) {
-        const targetDate = new Date(startDate);
-        targetDate.setDate(startDate.getDate() + Math.floor(i / 6) * 7 + (i % 6));
-        const dateStr = targetDate.toLocaleDateString('sv-SE'); 
-        const displayDate = `${targetDate.getMonth() + 1}/${targetDate.getDate()}`;
+    // 1日から末日までループ
+    for (let d = 1; d <= lastDay; d++) {
+        const targetDate = new Date(displayMonth.getFullYear(), displayMonth.getMonth(), d);
+        const dayOfWeek = targetDate.getDay();
+
+        // 日曜日(0)はスキップ（月〜土の6列表示に合わせるため）
+        if (dayOfWeek === 0) continue;
+
+        // 1日が火曜日などの場合、月曜日との間に空の枠を入れる必要があるが、
+        // 現場の運用に合わせて「日付順に枠を埋める」シンプルな方式にします
+        const dateStr = targetDate.toLocaleDateString('sv-SE');
+        const displayDateLabel = `${targetDate.getMonth() + 1}/${targetDate.getDate()}`;
+        
         const slot = document.createElement('div');
         slot.className = 'day-slot';
         slot.id = `day-${dateStr}`;
-        // 今日の日付ならクラスを付与
-        if (dateStr === todayStr) {
-        slot.classList.add('today');
-        }
-        slot.innerHTML = `<div class="date-label">${displayDate}</div>`;
+
+        // 今日のハイライト
+        if (dateStr === todayStr) slot.classList.add('today');
+        // 祝日のハイライト
         if (isJapaneseHoliday(targetDate)) slot.classList.add('holiday');
+
+        slot.innerHTML = `<div class="date-label">${displayDateLabel}</div>`;
         grid.appendChild(slot);
     }
 
-    let url = API_BASE_URL;
+    // データを取得してカレンダーに配置
+    await loadAppointmentsIntoCalendar();
+}
 
+// 月移動ボタンから呼ばれる関数
+function changeMonth(offset) {
+    if (offset === 0) {
+        currentMonthOffset = 0;
+    } else {
+        currentMonthOffset += offset;
+    }
+    renderCalendar();
+}
+
+// --- 2. データ取得と配置 ---
+async function loadAppointmentsIntoCalendar() {
     try {
-        const response = await fetch(url);
+        const response = await fetch(API_BASE_URL);
         const appointments = await response.json();
+        
         appointments.forEach(app => {
             const dateObj = new Date(app.appointment_date.replace('T', ' '));
             const appDate = app.appointment_date.split('T')[0];
-            const timeStr = (dateObj.getHours() === 0 && dateObj.getMinutes() === 0)
-                            ? "時間指定なし"
-                            : dateObj.getHours().toString().padStart(2, '0') + ':' +
-                            dateObj.getMinutes().toString().padStart(2, '0');
             
             const slot = document.getElementById(`day-${appDate}`);
             if (slot) {
+                const timeStr = (dateObj.getHours() === 0 && dateObj.getMinutes() === 0)
+                    ? "時間指定なし"
+                    : dateObj.getHours().toString().padStart(2, '0') + ':' +
+                      dateObj.getMinutes().toString().padStart(2, '0');
+
                 const item = document.createElement('div');
                 item.className = `appointment-item ${app.status === 'completed' ? 'status-completed' : ''}`;
                 
@@ -76,14 +106,19 @@ async function loadTimetable() {
                     ${catHtml}
                     <div class="app-location"><small>📍${app.location}</small></div>
                 `;
-                item.onclick = () => openCompletionModal(app);
+                item.onclick = (e) => {
+                    e.stopPropagation();
+                    openCompletionModal(app);
+                };
                 slot.appendChild(item);
             }
         });
-    } catch (e) { console.error('データ取得失敗:', e); }
+    } catch (e) {
+        console.error('データ取得失敗:', e);
+    }
 }
 
-// --- 3. 予約登録処理 (index.html用) ---
+// --- 3. 予約登録処理 ---
 document.getElementById('reservation-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     let appointmentDate = document.getElementById('appointment_date').value;
@@ -93,24 +128,24 @@ document.getElementById('reservation-form')?.addEventListener('submit', async (e
         appointmentDate = `${appointmentDate.split('T')[0]}T00:00`;
     }
 
-    // ★ ヘルパー関数: 空なら「不明」を返す
     const valOrUnknown = (id, defaultValue = "不明") => {
         const value = document.getElementById(id).value.trim();
         return value === "" ? defaultValue : value;
     };
 
     const data = {
-        customer_name: document.getElementById('customer_name').value, // 必須
-        machine_model: document.getElementById('machine_model').value, // 必須
+        customer_name: document.getElementById('customer_name').value,
+        machine_model: document.getElementById('machine_model').value,
         contact_person: valOrUnknown('contact_person'),
         phone_number: valOrUnknown('phone_number'),
         serial_number: valOrUnknown('serial_number'),
-        appointment_date: appointmentDate || new Date().toISOString().slice(0, 16), // 日付がない場合は現在時刻
+        appointment_date: appointmentDate || new Date().toISOString().slice(0, 16),
         location: valOrUnknown('location', "現場不明"),
         failure_symptoms: valOrUnknown('failure_symptoms', "症状未確認"),
         received_by: valOrUnknown('received_by', "未設定"),
         is_own_lease: document.getElementById('is_own_lease').checked,
-        lease_location: document.getElementById('is_own_lease').checked ? document.getElementById('lease_location').value : ""
+        lease_location: document.getElementById('is_own_lease').checked ? document.getElementById('lease_location').value : "",
+        cause_categories: "" // 新規時は空
     };
 
     try {
@@ -122,23 +157,21 @@ document.getElementById('reservation-form')?.addEventListener('submit', async (e
         if (response.ok) {
             alert('登録完了！');
             e.target.reset();
-            loadTimetable();
+            renderCalendar(); // 再描画
         } else {
-            const errorData = await response.json();
-            alert('登録エラー: ' + (errorData.detail || 'サーバーエラー'));
+            alert('登録エラーが発生しました');
         }
     } catch (e) { 
         alert('通信エラーが発生しました'); 
     }
 });
 
-// --- 4. 詳細モーダルを開く (共通) ---
+// --- 4. モーダル制御 ---
 function openCompletionModal(app) {
     const modal = document.getElementById('status-modal');
     if (!modal) return;
     modal.style.display = 'block';
     
-    // 基本情報のセット
     document.getElementById('modal-app-id').value = app.id;
     document.getElementById('edit_customer_name').value = app.customer_name;
     document.getElementById('edit_contact_person').value = app.contact_person;
@@ -148,40 +181,28 @@ function openCompletionModal(app) {
     document.getElementById('edit_location').value = app.location;
     document.getElementById('edit_failure_symptoms').value = app.failure_symptoms;
     
-    // 受付情報・リース情報のセット
     if(document.getElementById('edit_received_by')) document.getElementById('edit_received_by').value = app.received_by || "";
-    if(document.getElementById('edit_is_own_lease')) document.getElementById('edit_is_own_lease').checked = app.is_own_lease || false;
-    if(document.getElementById('edit_lease_location')) {
-        document.getElementById('edit_lease_location').value = app.lease_location || "";
+    if(document.getElementById('edit_is_own_lease')) {
+        document.getElementById('edit_is_own_lease').checked = app.is_own_lease || false;
         toggleLeaseLocation('edit');
     }
+    if(document.getElementById('edit_lease_location')) document.getElementById('edit_lease_location').value = app.lease_location || "";
 
-    // カテゴリーのチェック状態復元
     const savedCats = app.cause_categories ? app.cause_categories.split(',') : [];
     document.querySelectorAll('#modal-category-group input[type="checkbox"]').forEach(cb => {
         cb.checked = savedCats.includes(cb.value);
     });
 
-    // 日時と「時間指定なし」の判定
     const date = new Date(app.appointment_date.replace('T', ' '));
     const localISO = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
     document.getElementById('edit_appointment_date').value = localISO;
     const noTimeCb = document.getElementById('edit_no_time_specified');
     if(noTimeCb) noTimeCb.checked = (date.getHours() === 0 && date.getMinutes() === 0);
     
-    // 完了報告内容
     document.getElementById('worker_name').value = app.worker_name || '';
     document.getElementById('completion_notes').value = app.completion_notes || '';
-
-    // ★ 修正ポイント：履歴画面でも編集を許可する ★
-    // readOnly を解除し、ボタンも常に表示するように変更します
-    modal.querySelectorAll('input, textarea').forEach(el => {
-        if (el.type !== 'hidden') el.readOnly = false;
-    });
-    modal.querySelectorAll('input[type="checkbox"], select').forEach(el => el.disabled = false);
 }
 
-// --- 5. 予定を修正・保存 (共通) ---
 async function submitCompletion() {
     const appId = document.getElementById('modal-app-id').value;
     let appointmentDate = document.getElementById('edit_appointment_date').value;
@@ -222,22 +243,18 @@ async function submitCompletion() {
     if (response.ok) {
         alert("更新しました");
         closeModal();
-        // 画面リフレッシュ：カレンダーなら loadTimetable、履歴なら loadHistory を実行
-        if (typeof loadTimetable === 'function' && document.querySelector('.timetable-grid')) loadTimetable();
-        if (typeof loadHistory === 'function' && document.getElementById('history-list')) loadHistory();
+        renderCalendar();
     }
 }
 
-// --- 6. 削除・閉じる処理 ---
 async function deleteAppointment() {
-    if (!confirm("本当にこの予約を削除しますか？")) return;
+    if (!confirm("本当にこの予約を削除しますカ？")) return;
     const appId = document.getElementById('modal-app-id').value;
     const response = await fetch(`${API_BASE_URL}/${appId}`, { method: 'DELETE' });
     if (response.ok) { 
         alert("削除しました");
         closeModal(); 
-        if (typeof loadTimetable === 'function' && document.querySelector('.timetable-grid')) loadTimetable();
-        if (typeof loadHistory === 'function' && document.getElementById('history-list')) loadHistory();
+        renderCalendar();
     }
 }
 
@@ -246,7 +263,7 @@ function closeModal() {
     if (modal) modal.style.display = 'none'; 
 }
 
-// --- 7. 祝日判定 (2026年対応) ---
+// --- 5. 祝日判定 (2026年対応) ---
 function isJapaneseHoliday(date) {
     const m = date.getMonth() + 1;
     const d = date.getDate();
@@ -263,7 +280,7 @@ function isJapaneseHoliday(date) {
     return false;
 }
 
-// --- 8. リース拠点表示切り替え ---
+// --- 6. リース拠点表示切り替え ---
 function toggleLeaseLocation(type) {
     const isChecked = type === 'new'
         ? document.getElementById('is_own_lease').checked
