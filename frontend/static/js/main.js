@@ -34,6 +34,26 @@ async function renderCalendar() {
         grid.appendChild(div);
     });
 
+    // --- ★ここが修正ポイント: 1日の曜日合わせ ---
+    // 0:日, 1:月, 2:火, 3:水, 4:木, 5:金, 6:土
+    const startDayOfWeek = displayMonth.getDay();
+
+    // 月曜日(1)を起点として、1日までの空枠を計算
+    // 日曜日(0)の場合は月曜から土曜まで6枠空ける必要があるため、調整
+    let skipSlots = startDayOfWeek === 0 ? 0 : startDayOfWeek - 1;
+    if (startDayOfWeek === 0) {
+        // 日曜始まりを月曜始まりのグリッドに合わせる（日曜は表示しないので無視して良いが、
+        // もし1日が日曜なら、次の月曜から表示が始まるので空枠は不要）
+        skipSlots = 0; 
+    }
+
+    // 1日の前に空の枠を挿入する
+    for (let s = 0; s < skipSlots; s++) {
+        const emptySlot = document.createElement('div');
+        emptySlot.className = 'day-slot empty'; // 'empty'クラスでグレーアウト等も可能
+        grid.appendChild(emptySlot);
+    }
+    
     // その月の末日を取得
     const lastDay = new Date(displayMonth.getFullYear(), displayMonth.getMonth() + 1, 0).getDate();
     const todayStr = new Date().toLocaleDateString('sv-SE');
