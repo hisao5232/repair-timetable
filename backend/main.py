@@ -32,6 +32,13 @@ engine = create_engine(db_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+# --- ログイン設定 (環境変数から取得) ---
+# .env の値を取得
+ADMIN_USER = os.getenv("ADMIN_USER")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+USER_NAME = os.getenv("USER_NAME")
+USER_PASSWORD = os.getenv("USER_PASSWORD")
+
 # --- 1. データベースモデル ---
 class Appointment(Base):
     __tablename__ = "appointments"
@@ -114,19 +121,18 @@ def read_root():
 # --- 追加: ログインエンドポイント ---
 @app.post("/login")
 def login(request: LoginRequest):
-    # セキュリティ向上のため、本来はDB参照やハッシュ化が必要ですが、
-    # まずは現在の運用に合わせてシンプルな照合を行います
-    # 必要に応じて環境変数などでID/PWを管理してください
-    VALID_USERNAME = "admin" # ここを任意の名前に
-    VALID_PASSWORD = "password123" # ここを任意のパスワードに
+    # .env から読み込んだ値と比較
+    is_admin = (request.username == ADMIN_USER and request.password == ADMIN_PASSWORD)
+    is_user = (request.username == USER_NAME and request.password == USER_PASSWORD)
 
-    if request.username == VALID_USERNAME and request.password == VALID_PASSWORD:
+    if is_admin or is_user:
         return {
             "username": request.username,
-            "is_admin": True,
+            "is_admin": is_admin,
             "status": "success"
         }
     else:
+        # 認証失敗
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="ユーザー名またはパスワードが正しくありません"
