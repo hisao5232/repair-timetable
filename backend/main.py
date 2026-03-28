@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query, Depends
+from fastapi import FastAPI, HTTPException, Query, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean
@@ -8,29 +8,29 @@ from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 import datetime as dt
 
-app = FastAPI()
+app = FastAPI(title="Repair-Time API")
 
 # --- CORS設定 ---
+# セキュリティのため、将来的に "*" を Cloudflare Pages のドメインに書き換えることを推奨します
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], 
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # --- データベース設定 ---
-db_url = f"postgresql://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@{os.getenv('DB_HOST')}/{os.getenv('POSTGRES_DB')}"
+# 環境変数が取得できない場合のフォールバック（開発用）を含めておくと安全です
+db_user = os.getenv('POSTGRES_USER', 'postgres')
+db_pass = os.getenv('POSTGRES_PASSWORD', 'password')
+db_host = os.getenv('DB_HOST', 'localhost')
+db_name = os.getenv('POSTGRES_DB', 'repair_db')
+
+db_url = f"postgresql://{db_user}:{db_pass}@{db_host}/{db_name}"
 engine = create_engine(db_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
-
-# --- 依存関係: DBセッションの取得 ---
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # --- 1. データベースモデル ---
 class Appointment(Base):
@@ -49,16 +49,20 @@ class Appointment(Base):
     completed_at = Column(DateTime, nullable=True)
     completion_notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=dt.datetime.now)
-    received_by = Column(String, nullable=True)        # 受付担当
-    is_own_lease = Column(Boolean, default=False)      # 自社リース機フラグ
-    lease_location = Column(String, nullable=True)     # リース拠点
-    # ★追加: 故障原因カテゴリー (カンマ区切りの文字列で保存)
-    cause_categories = Column(String, nullable=True)   
+    received_by = Column(String, nullable=True)
+    is_own_lease = Column(Boolean, default=False)
+    lease_location = Column(String, nullable=True)
+    cause_categories = Column(String, nullable=True) 
 
 # テーブル作成
 Base.metadata.create_all(bind=engine)
 
 # --- 2. Pydanticモデル ---
+# ログイン用
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
 class AppointmentCreate(BaseModel):
     customer_name: str
     contact_person: str
@@ -71,7 +75,6 @@ class AppointmentCreate(BaseModel):
     received_by: str | None = None
     is_own_lease: bool = False
     lease_location: str | None = None
-    # ★追加
     cause_categories: str | None = None
     model_config = ConfigDict(from_attributes=True)
 
@@ -91,17 +94,45 @@ class AppointmentUpdate(BaseModel):
     received_by: str | None = None
     is_own_lease: bool = False
     lease_location: str | None = None
-    # ★追加
     cause_categories: str | None = None
     model_config = ConfigDict(from_attributes=True)
+
+# --- 依存関係: DBセッション ---
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # --- 3. APIエンドポイント ---
 
 @app.get("/")
 def read_root():
-    return {"status": "Success"}
+    return {"message": "Repair-Time API is running", "timestamp": dt.datetime.now()}
 
-@app.post("/appointments")
+# --- 追加: ログインエンドポイント ---
+@app.post("/login")
+def login(request: LoginRequest):
+    # セキュリティ向上のため、本来はDB参照やハッシュ化が必要ですが、
+    # まずは現在の運用に合わせてシンプルな照合を行います
+    # 必要に応じて環境変数などでID/PWを管理してください
+    VALID_USERNAME = "admin" # ここを任意の名前に
+    VALID_PASSWORD = "password123" # ここを任意のパスワードに
+
+    if request.username == VALID_USERNAME and request.password == VALID_PASSWORD:
+        return {
+            "username": request.username,
+            "is_admin": True,
+            "status": "success"
+        }
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="ユーザー名またはパスワードが正しくありません"
+        )
+
+@app.post("/appointments", status_code=status.HTTP_201_CREATED)
 def create_appointment(item: AppointmentCreate, db: Session = Depends(get_db)):
     db_item = Appointment(**item.model_dump())
     db.add(db_item)
@@ -111,28 +142,20 @@ def create_appointment(item: AppointmentCreate, db: Session = Depends(get_db)):
 
 @app.get("/appointments")
 def get_appointments(
-    category: str | None = Query(None), # ★クエリパラメータでカテゴリー検索を可能に
+    category: str | None = Query(None),
     db: Session = Depends(get_db)
 ):
-    """
-    予約一覧を取得します。カテゴリーが指定されている場合はフィルタリングします。
-    """
     query = db.query(Appointment)
-    
-    # カテゴリーによる絞り込みロジック
     if category:
-        # DB内の cause_categories 文字列に、指定されたカテゴリーが含まれているか検索
         query = query.filter(Appointment.cause_categories.contains(category))
-        
     return query.order_by(Appointment.appointment_date).all()
 
 @app.patch("/appointments/{app_id}")
 def update_appointment(app_id: int, item: AppointmentUpdate, db: Session = Depends(get_db)):
     db_item = db.query(Appointment).filter(Appointment.id == app_id).first()
     if not db_item:
-        raise HTTPException(status_code=404, detail="Not Found")
+        raise HTTPException(status_code=404, detail="指定された予約が見つかりません")
     
-    # 送信されたデータをループしてDBモデルを更新
     update_data = item.model_dump()
     for key, value in update_data.items():
         setattr(db_item, key, value)
@@ -145,7 +168,8 @@ def update_appointment(app_id: int, item: AppointmentUpdate, db: Session = Depen
 def delete_appointment(app_id: int, db: Session = Depends(get_db)):
     db_item = db.query(Appointment).filter(Appointment.id == app_id).first()
     if not db_item:
-        raise HTTPException(status_code=404, detail="Not Found")
+        raise HTTPException(status_code=404, detail="指定された予約が見つかりません")
     db.delete(db_item)
     db.commit()
-    return {"message": "Deleted"}
+    return {"message": "Successfully deleted"}
+    

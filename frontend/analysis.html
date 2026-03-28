@@ -2,9 +2,11 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>故障原因分析 - Repair-Time</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <style>
+    <link rel="stylesheet" href="./static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
+    <style>
         .search-area { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #dee2e6; }
         
         .chart-container { 
@@ -12,11 +14,11 @@
             padding: 20px; 
             border-radius: 8px; 
             border: 1px solid #ddd; 
-            width: 100%;           /* 幅を広げる */
-            max-width: 800px;      /* 最大幅を少し大きく */
+            width: 100%;
+            max-width: 800px;
             margin: 0 auto; 
-            position: relative;    /* 必須 */
-            height: auto;          /* 高さは中身に合わせる */
+            position: relative;
+            height: auto;
         }
         
         #no-data-msg { text-align: center; color: #666; margin-top: 20px; display: none; }
@@ -26,7 +28,7 @@
     <div class="container">
         <header class="header-bar" style="display: flex; justify-content: space-between; align-items: center; background: #333; color: white; padding: 10px 20px; border-radius: 4px; margin-bottom: 20px;">
             <div><strong>📊 故障原因分析</strong></div>
-            <a href="/" style="background: #6c757d; color: white; text-decoration: none; padding: 5px 15px; border-radius: 4px; font-size: 0.9em;">カレンダーに戻る</a>
+            <a href="./index.html" style="background: #6c757d; color: white; text-decoration: none; padding: 5px 15px; border-radius: 4px; font-size: 0.9em;">カレンダーに戻る</a>
         </header>
 
         <div class="search-area">
@@ -38,7 +40,8 @@
         </div>
 
         <div class="chart-container">
-            <div style="min-height: 400px;"> <canvas id="causeChart"></canvas>
+            <div style="min-height: 400px;"> 
+                <canvas id="causeChart"></canvas>
             </div>
             <div id="no-data-msg">該当する型式の完了済みデータが見つかりませんでした。</div>
         </div>
@@ -46,13 +49,26 @@
 
     <script>
         let myChart = null;
+        const API_BASE_URL = 'https://repair-api.go-pro-world.net';
+
+        // ページ読み込み時の処理
+        document.addEventListener('DOMContentLoaded', () => {
+            // ログインチェック
+            const user = JSON.parse(localStorage.getItem('repair_user'));
+            if (!user) {
+                window.location.href = './login.html';
+                return;
+            }
+        });
 
         async function analyzeData() {
             const modelName = document.getElementById('machine-search').value.trim().toLowerCase();
             if (!modelName) return;
 
             try {
-                const response = await fetch('https://repair-api.go-pro-world.net/appointments');
+                const response = await fetch(`${API_BASE_URL}/appointments`);
+                if (!response.ok) throw new Error('データ取得失敗');
+                
                 const allData = await response.json();
 
                 // 完了済み(status: completed) かつ 型式が一致するデータを抽出
@@ -73,9 +89,11 @@
                 const counts = { "燃料系": 0, "電気系": 0, "油圧系": 0, "構造系": 0, "定期点検": 0, "先方都合": 0 };
                 filtered.forEach(app => {
                     if (app.cause_categories) {
+                        // 文字列をカンマで分割してカウント
                         app.cause_categories.split(',').forEach(cat => {
-                            if (counts.hasOwnProperty(cat.trim())) {
-                                counts[cat.trim()]++;
+                            const trimmedCat = cat.trim();
+                            if (counts.hasOwnProperty(trimmedCat)) {
+                                counts[trimmedCat]++;
                             }
                         });
                     }
@@ -86,14 +104,14 @@
 
             } catch (e) {
                 console.error("分析エラー:", e);
-                alert("データの取得に失敗しました。");
+                alert("データの取得に失敗しました。サーバーの状態を確認してください。");
             }
         }
 
         function updateChart(counts, label) {
             const ctx = document.getElementById('causeChart').getContext('2d');
             
-            if (myChart) myChart.destroy(); // 既存のグラフを破棄
+            if (myChart) myChart.destroy();
 
             myChart = new Chart(ctx, {
                 type: 'bar',
@@ -106,18 +124,18 @@
                             '#ff6384', '#36a2eb', '#ffce56', '#4bc0c0', '#9966ff', '#ff9f40'
                         ],
                         borderWidth: 1,
-                        barThickness: 30 // 棒の太さを固定して見やすくする
+                        barThickness: 30
                     }]
                 },
                 options: {
                     indexAxis: 'y',
                     responsive: true,
-                    maintainAspectRatio: false, // ★これをfalseにすることで、コンテナの高さに合わせる
+                    maintainAspectRatio: false,
                     plugins: {
                         legend: {
                             display: true,
                             position: 'top',
-                            labels: { font: { size: 14 } } // 文字を大きく
+                            labels: { font: { size: 14 } }
                         }
                     },
                     scales: {
@@ -127,8 +145,8 @@
                         },
                         y: {
                             ticks: { 
-                                font: { size: 14, weight: 'bold' }, // 左側の「燃料系」などの文字を大きく
-                                autoSkip: false // 全てのラベルを必ず表示
+                                font: { size: 14, weight: 'bold' },
+                                autoSkip: false
                             }
                         }
                     }

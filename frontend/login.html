@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Repair-Time</title>
+    <link rel="stylesheet" href="./static/css/style.css">
+    <style>
+        .login-container { max-width: 300px; margin: 100px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h2 { text-align: center; margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { width: 100%; padding: 12px; background: #333; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        button:hover { background: #555; }
+        .error { color: #d9534f; font-size: 0.85em; margin-bottom: 15px; display: none; text-align: center; }
+        .loading { text-align: center; font-size: 0.8em; color: #666; display: none; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h2>🛠️ Repair-Time</h2>
+        <form id="login-form">
+            <input type="text" id="username" placeholder="ユーザー名" required>
+            <input type="password" id="password" placeholder="パスワード" required>
+            <p id="error-message" class="error">ユーザー名またはパスワードが違います</p>
+            <button type="submit" id="login-button">ログイン</button>
+            <div id="loading-spinner" class="loading">認証中...</div>
+        </form>
+    </div>
+
+    <script>
+        // APIのベースURL（VPSのFastAPIのアドレスを指定してください）
+        const API_BASE_URL = 'https://repair-api.go-pro-world.net';
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('error-message');
+            const loading = document.getElementById('loading-spinner');
+            const btn = document.getElementById('login-button');
+
+            // 表示のリセット
+            errorMsg.style.display = 'none';
+            loading.style.display = 'block';
+            btn.disabled = true;
+
+            try {
+                // FastAPI側のログインエンドポイントを叩く
+                // 注意: バックエンドに /login エンドポイントを作成する必要があります
+                const response = await fetch(`${API_BASE_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // 成功したらユーザー情報をブラウザに保存
+                    // dataには { "username": "...", "is_admin": true } などが含まれる想定
+                    localStorage.setItem('repair_user', JSON.stringify(data));
+                    
+                    // メインページへ遷移
+                    window.location.href = './index.html';
+                } else {
+                    errorMsg.style.display = 'block';
+                }
+            } catch (err) {
+                console.error('Login error:', err);
+                alert('サーバーに接続できません。バックエンドが起動しているか確認してください。');
+            } finally {
+                loading.style.display = 'none';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
